@@ -1,7 +1,10 @@
+import net.fabricmc.loom.LoomGradleExtension
+
 plugins {
     id 'fabric-loom'
     id 'maven-publish'
     id "org.jetbrains.kotlin.jvm"
+    id "org.jetbrains.kotlin.kapt" version "1.3.72"
 }
 
 sourceCompatibility = JavaVersion.VERSION_1_8
@@ -15,8 +18,34 @@ minecraft {
 }
 
 
+
 repositories {
     maven { url = "http://maven.fabricmc.net/" }
+}
+
+
+def kaptConfig = configurations.getByName("kapt")
+kaptConfig.extendsFrom(configurations.minecraftNamed)
+kaptConfig.extendsFrom(configurations.modCompileClasspathMapped)
+kaptConfig.extendsFrom(configurations.mappingsFinal)
+
+def loomExt = extensions.getByType(LoomGradleExtension)
+def javaTask = tasks.getByName("compileJava")
+
+kapt {
+    arguments {
+        arg("inMapFileNamedIntermediary", loomExt.getMappingsProvider().tinyMappings.getCanonicalPath())
+        arg("outMapFileNamedIntermediary", loomExt.getMappingsProvider().mappingsMixinExport.getCanonicalPath())
+        arg("outRefMapFile", new File(javaTask.getDestinationDir(), loomExt.getRefmapName()).getCanonicalPath())
+        arg("defaultObfuscationEnv", "named:intermediary")
+    }
+    includeCompileClasspath = false
+}
+
+
+dependencies {
+    kapt "net.fabricmc:sponge-mixin:0.8+build.18"
+    kapt "net.fabricmc:fabric-mixin-compile-extensions:0.3.0.4"
 }
 
 dependencies {
@@ -26,15 +55,21 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     // Fabric API. This is technically optional, but you probably want it anyway.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+//    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     modImplementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
 
-    // PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
-    // You may need to force-disable transitiveness on them.
+
+    implementation "com.google.auto.service:auto-service:1.0-rc7"
+    kapt "com.google.auto.service:auto-service:1.0-rc7"
+
+
+
+
 }
 
 processResources {
+
     inputs.property "version", project.version
 
     from(sourceSets.main.resources.srcDirs) {
